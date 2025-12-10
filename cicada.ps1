@@ -17,8 +17,134 @@ function Show-Menu {
     Write-Host "1. Disable All Security Features"
     Write-Host "2. Enable All Security Features"
     Write-Host "3. Check Current Status"
-    Write-Host "4. Exit"
+    Write-Host "4. Show System Specifications"
+    Write-Host "5. Exit"
     Write-Host ""
+}
+
+function Show-SystemSpecs {
+    Write-Host "`n========================================" -ForegroundColor Cyan
+    Write-Host "SYSTEM SPECIFICATIONS" -ForegroundColor Cyan
+    Write-Host "========================================`n" -ForegroundColor Cyan
+    
+    # Motherboard & BIOS Information
+    Write-Host "MOTHERBOARD & BIOS" -ForegroundColor Yellow
+    Write-Host "==================" -ForegroundColor DarkGray
+    try {
+        $bios = Get-CimInstance -ClassName Win32_BIOS
+        $baseboard = Get-CimInstance -ClassName Win32_BaseBoard
+        $system = Get-CimInstance -ClassName Win32_ComputerSystemProduct
+        
+        Write-Host "Manufacturer:        $($baseboard.Manufacturer)" -ForegroundColor White
+        Write-Host "Model:               $($baseboard.Product)" -ForegroundColor White
+        Write-Host "BIOS Version:        $($bios.SMBIOSBIOSVersion)" -ForegroundColor White
+        Write-Host "BIOS UUID:           $($system.UUID)" -ForegroundColor White
+        Write-Host "BIOS Serial:         $($bios.SerialNumber)" -ForegroundColor White
+        Write-Host "Baseboard Serial:    $($baseboard.SerialNumber)" -ForegroundColor White
+        Write-Host "Baseboard Asset Tag: $($baseboard.Tag)" -ForegroundColor White
+    } catch {
+        Write-Host "Error retrieving motherboard/BIOS info" -ForegroundColor Red
+    }
+    
+    # System Enclosure
+    Write-Host "`nSYSTEM ENCLOSURE" -ForegroundColor Yellow
+    Write-Host "================" -ForegroundColor DarkGray
+    try {
+        $enclosure = Get-CimInstance -ClassName Win32_SystemEnclosure
+        Write-Host "Manufacturer:        $($enclosure.Manufacturer)" -ForegroundColor White
+        Write-Host "Model:               $($enclosure.Model)" -ForegroundColor White
+        Write-Host "Serial Number:       $($enclosure.SerialNumber)" -ForegroundColor White
+        Write-Host "Enclosure Asset Tag: $($enclosure.SMBIOSAssetTag)" -ForegroundColor White
+    } catch {
+        Write-Host "Error retrieving enclosure info" -ForegroundColor Red
+    }
+    
+    # Disk Information
+    Write-Host "`nDISK DRIVES" -ForegroundColor Yellow
+    Write-Host "===========" -ForegroundColor DarkGray
+    try {
+        $disks = Get-CimInstance -ClassName Win32_DiskDrive
+        foreach ($disk in $disks) {
+            $sizeGB = [math]::Round($disk.Size / 1GB, 2)
+            Write-Host "Model:               $($disk.Model)" -ForegroundColor White
+            Write-Host "Serial Number:       $($disk.SerialNumber.Trim())" -ForegroundColor White
+            Write-Host "Interface:           $($disk.InterfaceType)" -ForegroundColor White
+            Write-Host "Size:                $sizeGB GB" -ForegroundColor White
+            Write-Host "Media Type:          $($disk.MediaType)" -ForegroundColor White
+            if ($disks.Count -gt 1) { Write-Host "" }
+        }
+    } catch {
+        Write-Host "Error retrieving disk info" -ForegroundColor Red
+    }
+    
+    # Network Adapters
+    Write-Host "`nNETWORK ADAPTERS" -ForegroundColor Yellow
+    Write-Host "================" -ForegroundColor DarkGray
+    try {
+        $adapters = Get-NetAdapter
+        foreach ($adapter in $adapters) {
+            Write-Host "Adapter:             $($adapter.InterfaceDescription)" -ForegroundColor White
+            Write-Host "Name:                $($adapter.Name)" -ForegroundColor White
+            Write-Host "Current MAC:         $($adapter.MacAddress)" -ForegroundColor White
+            
+            # Get permanent MAC address
+            try {
+                $permanentMAC = (Get-NetAdapterAdvancedProperty -Name $adapter.Name -RegistryKeyword "NetworkAddress" -ErrorAction SilentlyContinue).RegistryValue
+                if ([string]::IsNullOrEmpty($permanentMAC)) {
+                    $permanentMAC = $adapter.MacAddress
+                }
+                Write-Host "Permanent MAC:       $permanentMAC" -ForegroundColor White
+            } catch {
+                Write-Host "Permanent MAC:       $($adapter.MacAddress)" -ForegroundColor White
+            }
+            
+            Write-Host "Status:              $($adapter.Status)" -ForegroundColor White
+            Write-Host "Link Speed:          $($adapter.LinkSpeed)" -ForegroundColor White
+            Write-Host "Virtual:             $($adapter.Virtual)" -ForegroundColor White
+            if ($adapters.Count -gt 1) { Write-Host "" }
+        }
+    } catch {
+        Write-Host "Error retrieving network adapter info" -ForegroundColor Red
+    }
+    
+    # Physical RAM
+    Write-Host "`nPHYSICAL MEMORY (RAM)" -ForegroundColor Yellow
+    Write-Host "=====================" -ForegroundColor DarkGray
+    try {
+        $ramModules = Get-CimInstance -ClassName Win32_PhysicalMemory
+        $totalRAM = 0
+        foreach ($ram in $ramModules) {
+            $capacityGB = [math]::Round($ram.Capacity / 1GB, 2)
+            $memType = switch ($ram.SMBIOSMemoryType) {
+                20 { "DDR" }
+                21 { "DDR2" }
+                24 { "DDR3" }
+                26 { "DDR4" }
+                34 { "DDR5" }
+                default { "Unknown" }
+            }
+            
+            Write-Host "Manufacturer:        $($ram.Manufacturer)" -ForegroundColor White
+            Write-Host "Serial Number:       $($ram.SerialNumber)" -ForegroundColor White
+            Write-Host "Part Number:         $($ram.PartNumber)" -ForegroundColor White
+            Write-Host "Capacity:            $capacityGB GB" -ForegroundColor White
+            Write-Host "Speed:               $($ram.Speed) MHz" -ForegroundColor White
+            Write-Host "Type:                $memType" -ForegroundColor White
+            Write-Host "Slot:                $($ram.DeviceLocator)" -ForegroundColor White
+            
+            $totalRAM += $ram.Capacity
+            if ($ramModules.Count -gt 1) { Write-Host "" }
+        }
+        
+        $totalRAMGB = [math]::Round($totalRAM / 1GB, 2)
+        Write-Host "Total Installed:     $totalRAMGB GB" -ForegroundColor Green
+    } catch {
+        Write-Host "Error retrieving RAM info" -ForegroundColor Red
+    }
+    
+    Write-Host "`n========================================" -ForegroundColor Cyan
+    Write-Host "SPECS COLLECTION COMPLETE" -ForegroundColor Green
+    Write-Host "========================================" -ForegroundColor Cyan
 }
 
 function Disable-AllSecurity {
@@ -464,7 +590,7 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 do {
     Show-Menu
-    $choice = Read-Host "Select option (1-4)"
+    $choice = Read-Host "Select option (1-5)"
     
     switch ($choice) {
         '1' {
@@ -485,12 +611,17 @@ do {
             $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         }
         '4' {
+            Show-SystemSpecs
+            Write-Host "`nPress any key to continue..."
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        }
+        '5' {
             Write-Host "`nExiting..." -ForegroundColor DarkYellow
             exit
         }
         default {
-            Write-Host "`nInvalid option. Select 1-4." -ForegroundColor Red
+            Write-Host "`nInvalid option. Select 1-5." -ForegroundColor Red
             Start-Sleep -Seconds 1
         }
     }
-} while ($choice -ne '4')
+} while ($choice -ne '5')
