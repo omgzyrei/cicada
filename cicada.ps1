@@ -13,25 +13,82 @@ function Show-Menu {
     Write-Host "░ ░       ░  ░ ░            ░  ░   ░          ░  ░"
     Write-Host "░            ░                   ░                "
     Write-Host ""
+    Write-Host "https://discord.gg/6J4vQB2gwy" -ForegroundColor Green
     Write-Host ""
-    Write-Host "https://discord.gg/6J4vQB2gwy"
-    Write-Host ""
-    Write-Host ""
-    Write-Host "1. Disable All Security Features"
-    Write-Host "2. Enable All Security Features"
-    Write-Host "3. Check Current Status"
-    Write-Host "4. Show System Specifications"
-    Write-Host "5. Exit"
+    Write-Host "1. Disable All Security Features" -ForegroundColor White
+    Write-Host "2. Enable All Security Features" -ForegroundColor White
+    Write-Host "3. Check Current Status" -ForegroundColor White
+    Write-Host "4. Show System Specifications" -ForegroundColor White
+    Write-Host "5. Exit" -ForegroundColor White
     Write-Host ""
 }
 
 function Show-SystemSpecs {
-    Write-Host "`n========================================" -ForegroundColor Cyan
+    Write-Host "`n=========================================" -ForegroundColor Cyan
     Write-Host "SYSTEM SPECIFICATIONS" -ForegroundColor Cyan
-    Write-Host "========================================`n" -ForegroundColor Cyan
+    Write-Host "=========================================" -ForegroundColor Cyan
+    
+    # Computer Name
+    Write-Host "`nCOMPUTER INFORMATION" -ForegroundColor Yellow
+    Write-Host "====================" -ForegroundColor DarkGray
+    try {
+        Write-Host "Computer Name:       $env:COMPUTERNAME" -ForegroundColor White
+        Write-Host "User Name:           $env:USERNAME" -ForegroundColor White
+        Write-Host "Domain:              $env:USERDOMAIN" -ForegroundColor White
+    } catch {
+        Write-Host "Error retrieving computer info" -ForegroundColor Red
+    }
+
+    # CPU Information
+    Write-Host "`nPROCESSOR (CPU)" -ForegroundColor Yellow
+    Write-Host "===============" -ForegroundColor DarkGray
+    try {
+        $cpu = Get-CimInstance -ClassName Win32_Processor
+        Write-Host "Manufacturer:        $($cpu.Manufacturer)" -ForegroundColor White
+        Write-Host "Name:                $($cpu.Name)" -ForegroundColor White
+        Write-Host "Cores:               $($cpu.NumberOfCores)" -ForegroundColor White
+        Write-Host "Threads:             $($cpu.NumberOfLogicalProcessors)" -ForegroundColor White
+        Write-Host "Max Clock Speed:     $($cpu.MaxClockSpeed) MHz" -ForegroundColor White
+        
+        $cpuType = if ($cpu.Manufacturer -like "*Intel*") { "Intel" } elseif ($cpu.Manufacturer -like "*AMD*") { "AMD" } else { "Other" }
+        Write-Host "CPU Type:            $cpuType" -ForegroundColor White
+    } catch {
+        Write-Host "Error retrieving CPU info" -ForegroundColor Red
+    }
+
+    # TPM Information
+    Write-Host "`nTRUSTED PLATFORM MODULE (TPM)" -ForegroundColor Yellow
+    Write-Host "=============================" -ForegroundColor DarkGray
+    try {
+        $tpm = Get-Tpm -ErrorAction SilentlyContinue
+        if ($tpm) {
+            Write-Host "TPM Present:         $($tpm.TpmPresent)" -ForegroundColor White
+            Write-Host "TPM Ready:           $($tpm.TpmReady)" -ForegroundColor White
+            Write-Host "TPM Enabled:         $($tpm.TpmEnabled)" -ForegroundColor White
+            Write-Host "Status:              $(if ($tpm.TpmReady) { "Enabled" } else { "Disabled" })" -ForegroundColor $(if ($tpm.TpmReady) { "Green" } else { "Red" })
+        } else {
+            Write-Host "TPM not detected or not supported" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "Error retrieving TPM info" -ForegroundColor Red
+    }
+
+    # Secure Boot Information
+    Write-Host "`nSECURE BOOT" -ForegroundColor Yellow
+    Write-Host "===========" -ForegroundColor DarkGray
+    try {
+        $secureBoot = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
+        if ($null -ne $secureBoot) {
+            Write-Host "Status:              $(if ($secureBoot) { "Enabled" } else { "Disabled" })" -ForegroundColor $(if ($secureBoot) { "Green" } else { "Red" })
+        } else {
+            Write-Host "Secure Boot not supported or UEFI not detected" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "Error retrieving Secure Boot info" -ForegroundColor Red
+    }
     
     # Motherboard & BIOS Information
-    Write-Host "MOTHERBOARD & BIOS" -ForegroundColor Yellow
+    Write-Host "`nMOTHERBOARD & BIOS" -ForegroundColor Yellow
     Write-Host "==================" -ForegroundColor DarkGray
     try {
         $bios = Get-CimInstance -ClassName Win32_BIOS
@@ -145,15 +202,15 @@ function Show-SystemSpecs {
         Write-Host "Error retrieving RAM info" -ForegroundColor Red
     }
     
-    Write-Host "`n========================================" -ForegroundColor Cyan
+    Write-Host "`n=========================================" -ForegroundColor Cyan
     Write-Host "SPECS COLLECTION COMPLETE" -ForegroundColor Green
-    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "=========================================" -ForegroundColor Cyan
 }
 
 function Disable-AllSecurity {
-    Write-Host "`n========================================" -ForegroundColor Yellow
+    Write-Host "`n=========================================" -ForegroundColor Yellow
     Write-Host "DISABLING ALL SECURITY FEATURES" -ForegroundColor Yellow
-    Write-Host "========================================`n" -ForegroundColor Yellow
+    Write-Host "=========================================" -ForegroundColor Yellow
     
     $allSettings = @(
         # Vulnerable Driver Blocklist
@@ -301,7 +358,7 @@ function Disable-AllSecurity {
         Set-MpPreference -DisableScriptScanning $true -ErrorAction SilentlyContinue
         Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction SilentlyContinue
         Set-MpPreference -MAPSReporting 0 -ErrorAction SilentlyContinue
-        Set-MpPreference -HighThreatDefaultAction 6 -AllowThreatDefaultAction -ErrorAction SilentlyContinue
+        Set-MpPreference -HighThreatDefaultAction 6 -ErrorAction SilentlyContinue
         Set-MpPreference -ModerateThreatDefaultAction 6 -ErrorAction SilentlyContinue
         Set-MpPreference -LowThreatDefaultAction 6 -ErrorAction SilentlyContinue
         Set-MpPreference -SevereThreatDefaultAction 6 -ErrorAction SilentlyContinue
@@ -343,18 +400,18 @@ function Disable-AllSecurity {
         } catch {}
     }
     
-    Write-Host "`n========================================" -ForegroundColor Green
+    Write-Host "`n=========================================" -ForegroundColor Green
     Write-Host "COMPLETE" -ForegroundColor Green
-    Write-Host "========================================" -ForegroundColor Green
+    Write-Host "=========================================" -ForegroundColor Green
     Write-Host "Settings changed: $changedCount" -ForegroundColor White
     Write-Host "Errors: $errorCount" -ForegroundColor $(if ($errorCount -gt 0) { "Red" } else { "White" })
     Write-Host "`nAll security features have been disabled." -ForegroundColor Green
 }
 
 function Enable-AllSecurity {
-    Write-Host "`n========================================" -ForegroundColor Cyan
+    Write-Host "`n=========================================" -ForegroundColor Cyan
     Write-Host "ENABLING ALL SECURITY FEATURES" -ForegroundColor Cyan
-    Write-Host "========================================`n" -ForegroundColor Cyan
+    Write-Host "=========================================" -ForegroundColor Cyan
     
     $allSettings = @(
         # Vulnerable Driver Blocklist
@@ -537,18 +594,18 @@ function Enable-AllSecurity {
         } catch {}
     }
     
-    Write-Host "`n========================================" -ForegroundColor Green
+    Write-Host "`n=========================================" -ForegroundColor Green
     Write-Host "COMPLETE" -ForegroundColor Green
-    Write-Host "========================================" -ForegroundColor Green
+    Write-Host "=========================================" -ForegroundColor Green
     Write-Host "Settings changed: $changedCount" -ForegroundColor White
     Write-Host "Errors: $errorCount" -ForegroundColor $(if ($errorCount -gt 0) { "Red" } else { "White" })
     Write-Host "`nAll security features have been enabled." -ForegroundColor Green
 }
 
 function Check-SecurityStatus {
-    Write-Host "`n========================================" -ForegroundColor DarkYellow
+    Write-Host "`n=========================================" -ForegroundColor DarkYellow
     Write-Host "SECURITY STATUS CHECK" -ForegroundColor DarkYellow
-    Write-Host "========================================`n" -ForegroundColor DarkYellow
+    Write-Host "=========================================" -ForegroundColor DarkYellow
     
     $checkSettings = @(
         @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Config"; Name = "VulnerableDriverBlocklistEnable"; Display = "Vulnerable Driver Blocklist"},
@@ -596,10 +653,38 @@ function Check-SecurityStatus {
         }
     } catch {}
     
-    Write-Host "`n========================================" -ForegroundColor DarkYellow
+    # Check TPM Status
+    Write-Host "`nTPM Status:" -ForegroundColor DarkYellow
+    try {
+        $tpm = Get-Tpm -ErrorAction SilentlyContinue
+        if ($tpm) {
+            $status = if ($tpm.TpmReady) { "ON" } else { "OFF" }
+            $color = if ($status -eq "OFF") { "Green" } else { "Red" }
+            Write-Host "[$status] TPM" -ForegroundColor $color
+            if ($status -eq "ON") { $enabledCount++ } else { $disabledCount++ }
+        } else {
+            Write-Host "[NOT FOUND] TPM" -ForegroundColor Yellow
+        }
+    } catch {}
+
+    # Check Secure Boot Status
+    Write-Host "`nSecure Boot Status:" -ForegroundColor DarkYellow
+    try {
+        $secureBoot = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
+        if ($null -ne $secureBoot) {
+            $status = if ($secureBoot) { "ON" } else { "OFF" }
+            $color = if ($status -eq "OFF") { "Green" } else { "Red" }
+            Write-Host "[$status] Secure Boot" -ForegroundColor $color
+            if ($status -eq "ON") { $enabledCount++ } else { $disabledCount++ }
+        } else {
+            Write-Host "[NOT SUPPORTED] Secure Boot" -ForegroundColor Yellow
+        }
+    } catch {}
+    
+    Write-Host "`n=========================================" -ForegroundColor DarkYellow
     Write-Host "Enabled: $enabledCount" -ForegroundColor $(if ($enabledCount -gt 0) { "Red" } else { "Green" })
     Write-Host "Disabled: $disabledCount" -ForegroundColor Green
-    Write-Host "========================================" -ForegroundColor DarkYellow
+    Write-Host "=========================================" -ForegroundColor DarkYellow
     
     if ($enabledCount -gt 0) {
         Write-Host "`nSome security features are still enabled." -ForegroundColor Yellow
