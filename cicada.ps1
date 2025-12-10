@@ -155,10 +155,32 @@ function Disable-AllSecurity {
     Write-Host "DISABLING ALL SECURITY FEATURES" -ForegroundColor Yellow
     Write-Host "========================================`n" -ForegroundColor Yellow
     
+    # Add vulnerable driver blocklist cleanup first
+    Write-Host "Cleaning up Vulnerable Driver Blocklist..." -ForegroundColor DarkYellow
+    try {
+        $registryPath = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Config"
+        if (-not (Test-Path $registryPath)) {
+            New-Item -Path $registryPath -Force | Out-Null
+        }
+        
+        # Delete all existing values under the Config key
+        Get-ItemProperty -Path $registryPath | Get-Member -MemberType NoteProperty | ForEach-Object {
+            if ($_.Name -notlike "PS*") {
+                Remove-ItemProperty -Path $registryPath -Name $_.Name -Force -ErrorAction SilentlyContinue
+            }
+        }
+        
+        # Set to 0
+        New-ItemProperty -Path $registryPath -Name "VulnerableDriverBlocklist" -Value 0 -PropertyType DWORD -Force | Out-Null
+        Write-Host "[OK] VulnerableDriverBlocklist cleaned and set to 0" -ForegroundColor Green
+    } catch {
+        Write-Host "[SKIP] VulnerableDriverBlocklist cleanup (Protected)" -ForegroundColor Yellow
+    }
+
     $allSettings = @(
         # Vulnerable Driver Blocklist
-        @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Config"; Name = "VulnerableDriverBlocklistEnable"; Value = 0},
-        @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Protected"; Name = "VulnerableDriverBlocklistEnable"; Value = 0},
+	@{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Config"; Name = "VulnerableDriverBlocklist"; Value = 0},
+        @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Protected"; Name = "VulnerableDriverBlocklist"; Value = 0},
         
         # Core Isolation - Memory Integrity (HVCI)
         @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity"; Name = "Enabled"; Value = 0},
@@ -358,8 +380,8 @@ function Enable-AllSecurity {
     
     $allSettings = @(
         # Vulnerable Driver Blocklist
-        @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Config"; Name = "VulnerableDriverBlocklistEnable"; Value = 1},
-        @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Protected"; Name = "VulnerableDriverBlocklistEnable"; Value = 1},
+	@{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Config"; Name = "VulnerableDriverBlocklist"; Value = 1},
+        @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Protected"; Name = "VulnerableDriverBlocklist"; Value = 1},
         
         # Core Isolation - Memory Integrity (HVCI)
         @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity"; Name = "Enabled"; Value = 1},
@@ -551,7 +573,7 @@ function Check-SecurityStatus {
     Write-Host "========================================`n" -ForegroundColor DarkYellow
     
     $checkSettings = @(
-        @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Config"; Name = "VulnerableDriverBlocklistEnable"; Display = "Vulnerable Driver Blocklist"},
+	@{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Config"; Name = "VulnerableDriverBlocklist"; Display = "Vulnerable Driver Blocklist"},
         @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity"; Name = "Enabled"; Display = "Memory Integrity (HVCI)"},
         @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard"; Name = "EnableVirtualizationBasedSecurity"; Display = "Virtualization-Based Security"},
         @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"; Name = "DisableExceptionChainValidation"; Display = "SEHOP (Disabled = 1)"},
