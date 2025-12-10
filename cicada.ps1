@@ -477,6 +477,32 @@ function Enable-AllSecurity {
         Write-Host "[INFO] Some Defender cmdlets unavailable" -ForegroundColor Yellow
     }
     
+    # Remove ALL Group Policy settings to eliminate "managed by administrator" message
+    Write-Host "`nRemoving Group Policy restrictions..." -ForegroundColor Cyan
+    try {
+        # Remove entire Windows Defender Policies folder
+        if (Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender") {
+            Remove-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender" -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "[OK] Windows Defender policies removed" -ForegroundColor Green
+        }
+        
+        # Remove Tamper Protection settings
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Features" -Name "TamperProtection" -ErrorAction SilentlyContinue
+        
+        # Remove additional policy keys
+        if (Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System") {
+            Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableSmartScreen" -ErrorAction SilentlyContinue
+        }
+        
+        if (Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer") {
+            Remove-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer" -Name "NoDataExecutionPrevention" -ErrorAction SilentlyContinue
+        }
+        
+        Write-Host "[OK] All policy restrictions removed" -ForegroundColor Green
+    } catch {
+        Write-Host "[INFO] Some policy settings could not be removed" -ForegroundColor Yellow
+    }
+    
     # Enable Windows Defender Service
     Write-Host "`nEnabling Windows Defender Service..." -ForegroundColor Cyan
     try {
