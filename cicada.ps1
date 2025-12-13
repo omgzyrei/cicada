@@ -156,8 +156,22 @@ function Disable-AllSecurity {
     Write-Host "DISABLING ALL SECURITY FEATURES" -ForegroundColor Yellow
     Write-Host "========================================`n" -ForegroundColor Yellow
     
-    # Add vulnerable driver blocklist cleanup first
-    Write-Host "Cleaning up Vulnerable Driver Blocklist..." -ForegroundColor DarkYellow
+    # IMPORTANT: Remove Group Policy entries first to avoid "managed by administrator" message
+    Write-Host "Removing Group Policy restrictions..." -ForegroundColor DarkYellow
+    try {
+        if (Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender") {
+            Remove-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender" -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "[OK] Windows Defender policies removed" -ForegroundColor Green
+        }
+        
+        if (Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard") {
+            Remove-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard" -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "[OK] DeviceGuard policies removed" -ForegroundColor Green
+        }
+    } catch {}
+    
+    # Add vulnerable driver blocklist cleanup
+    Write-Host "`nCleaning up Vulnerable Driver Blocklist..." -ForegroundColor DarkYellow
     try {
         $registryPath = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Config"
         if (-not (Test-Path $registryPath)) {
@@ -178,9 +192,10 @@ function Disable-AllSecurity {
         Write-Host "[SKIP] VulnerableDriverBlocklist cleanup (Protected)" -ForegroundColor Yellow
     }
 
+    # Direct registry settings (NO POLICY PATHS)
     $allSettings = @(
         # Vulnerable Driver Blocklist
-	@{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Config"; Name = "VulnerableDriverBlocklist"; Value = 0},
+        @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Config"; Name = "VulnerableDriverBlocklist"; Value = 0},
         @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\CI\Protected"; Name = "VulnerableDriverBlocklist"; Value = 0},
         
         # Core Isolation - Memory Integrity (HVCI)
@@ -201,21 +216,10 @@ function Disable-AllSecurity {
         @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard"; Name = "HVCIMATRequired"; Value = 0},
         @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard"; Name = "ConfigureSystemGuardLaunch"; Value = 0},
         
-        # Policy settings
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard"; Name = "EnableVirtualizationBasedSecurity"; Value = 0},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard"; Name = "RequirePlatformSecurityFeatures"; Value = 0},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard"; Name = "HypervisorEnforcedCodeIntegrity"; Value = 0},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard"; Name = "LsaCfgFlags"; Value = 0},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard"; Name = "ConfigureSystemGuardLaunch"; Value = 0},
-        
         # Exploit Protection - Kernel mitigations
         @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"; Name = "MitigationOptions"; Value = 0x222222222222; Type = "QWord"},
         @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"; Name = "MitigationAuditOptions"; Value = 0x222222222222; Type = "QWord"},
         @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"; Name = "DisableExceptionChainValidation"; Value = 1},
-        
-        # Exploit Protection - DEP
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer"; Name = "NoDataExecutionPrevention"; Value = 1},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"; Name = "DisableHHDEP"; Value = 1},
         
         # Exploit Protection - ASLR
         @{Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"; Name = "MoveImages"; Value = 0},
@@ -227,55 +231,8 @@ function Disable-AllSecurity {
         # Process mitigations
         @{Path = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"; Name = "DisableProcessMitigations"; Value = 1},
         
-        # Windows Defender - Real-time Protection
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection"; Name = "DisableRealtimeMonitoring"; Value = 1},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection"; Name = "DisableBehaviorMonitoring"; Value = 1},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection"; Name = "DisableOnAccessProtection"; Value = 1},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection"; Name = "DisableScanOnRealtimeEnable"; Value = 1},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection"; Name = "DisableIOAVProtection"; Value = 1},
-        
-        # Windows Defender - Main Settings
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender"; Name = "DisableAntiSpyware"; Value = 1},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender"; Name = "DisableAntiVirus"; Value = 1},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender"; Name = "ServiceKeepAlive"; Value = 0},
-        
-        # Windows Defender - Scans
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Scan"; Name = "DisableArchiveScanning"; Value = 1},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Scan"; Name = "DisableCatchupFullScan"; Value = 1},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Scan"; Name = "DisableCatchupQuickScan"; Value = 1},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Scan"; Name = "DisableRemovableDriveScanning"; Value = 1},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Scan"; Name = "DisableEmailScanning"; Value = 1},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Scan"; Name = "DisableScanningNetworkFiles"; Value = 1},
-        
-        # Windows Defender - Cloud Protection
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet"; Name = "SpyNetReporting"; Value = 0},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet"; Name = "SubmitSamplesConsent"; Value = 2},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet"; Name = "DisableBlockAtFirstSeen"; Value = 1},
-        
-        # Windows Defender - Threats
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Threats"; Name = "Threats_ThreatSeverityDefaultAction"; Value = 1},
-        
-        # Windows Defender - MpEngine
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\MpEngine"; Name = "MpEnablePus"; Value = 0},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\MpEngine"; Name = "MpCloudBlockLevel"; Value = 0},
-        
-        # Windows Defender - Exclusions (allow all)
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions"; Name = "DisableAutoExclusions"; Value = 0},
-        
-        # Windows Defender - Signature Updates
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Signature Updates"; Name = "ForceUpdateFromMU"; Value = 0},
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Signature Updates"; Name = "DisableUpdateOnStartupWithoutEngine"; Value = 1},
-        
-        # Windows Defender - Reporting
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Reporting"; Name = "DisableEnhancedNotifications"; Value = 1},
-        
-        # SmartScreen
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"; Name = "EnableSmartScreen"; Value = 0},
-        @{Path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer"; Name = "SmartScreenEnabled"; Value = "Off"; Type = "String"},
-        
-        # Windows Security Center Notifications
-        @{Path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender Security Center\Notifications"; Name = "DisableNotifications"; Value = 1},
-        @{Path = "HKLM:\SOFTWARE\Microsoft\Windows Defender Security Center\Notifications"; Name = "DisableNotifications"; Value = 1}
+        # SmartScreen - Direct setting only (NOT policy)
+        @{Path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer"; Name = "SmartScreenEnabled"; Value = "Off"; Type = "String"}
     )
     
     $changedCount = 0
@@ -314,7 +271,7 @@ function Disable-AllSecurity {
         }
     }
     
-    # Disable Windows Defender via PowerShell
+    # Disable Windows Defender via PowerShell (THIS is what actually disables it)
     Write-Host "`nDisabling Windows Defender..." -ForegroundColor DarkYellow
     try {
         Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
@@ -372,6 +329,7 @@ function Disable-AllSecurity {
     Write-Host "Settings changed: $changedCount" -ForegroundColor White
     Write-Host "Errors: $errorCount" -ForegroundColor $(if ($errorCount -gt 0) { "Red" } else { "White" })
     Write-Host "`nAll security features have been disabled." -ForegroundColor Green
+    Write-Host "NO Group Policies set - you can re-enable manually if needed." -ForegroundColor Cyan
 }
 
 function Enable-AllSecurity {
