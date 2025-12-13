@@ -309,7 +309,7 @@ function Disable-AllSecurity {
             $changedCount++
             
         } catch {
-            Write-Host "[SKIP] $($setting.Name) (Protected)" -ForegroundColor Yellow
+            Write-Host "[!] $($setting.Name) (!)" -ForegroundColor Yellow
             $errorCount++
         }
     }
